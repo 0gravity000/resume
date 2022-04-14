@@ -13,32 +13,15 @@
 # limitations under the License.
 
 from flask import Flask, render_template
-import logging
-import jinja2
-import os
-import urllib.request
-
 
 # If `entrypoint` is not defined in app.yaml, App Engine will look for an app
 # called `app` in `main.py`.
-#app = Flask(__name__)
-#app.jinja_loader = jinja2.FileSystemLoader('./vuejs/dist')
 app = Flask(__name__, static_folder='./vuejs/dist/static', template_folder='./vuejs/dist')
-#app = Flask(__name__, static_folder='./vuejs/dist', template_folder='./vuejs/dist')
-
-
-'''
-@app.route('/')
-def hello():
-    """Return a friendly HTTP greeting."""
-    return 'Hello World!'
-'''
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def index(path):
     return render_template('index.html')
-
 
 if __name__ == '__main__':
     # This is used when running locally only. When deploying to Google App
