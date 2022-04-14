@@ -1,9 +1,10 @@
 # Google App Engine(GAE) 用 Vue+Flask テンプレート
 
 以下で動作するシンプルなテンプレートです。
-デプロイ先：Google App Engine(GAE) 
-フロントエンド：Vue.js v3 (vue cliを使用。vue routerを入れてます。)
-バックエンド：Flask 2.1.1 python 3.8　<- 本リポジトリ
+
+    デプロイ先：Google App Engine(GAE) 
+    フロントエンド：Vue.js v3 (vue cliを使用。vue routerを入れてます。)
+    バックエンド：Flask 2.1.1 python 3.8　<- 本リポジトリ
 
 フロントエンド側のリポジトリは以下です。
 https://github.com/0gravity000/template-vue
