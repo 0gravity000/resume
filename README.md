@@ -20,23 +20,27 @@ https://github.com/0gravity000/template-vue
 
     python -m venv venv
 
-3.フロントエンド側で vue/cli をインストールする。
+3.requirements.txtのモジュールをインストールする。
+
+    pip install -r requirements.txt
+
+4.フロントエンド側で vue/cli をインストールする。
 
     npm install -g @vue/cli
 
-4.フロントエンド側のリポジトリをローカルPCの任意の場所にクローンする。
+5.フロントエンド側のリポジトリをローカルPCの任意の場所にクローンする。
 
     git clone https://github.com/0gravity000/template-vue
 
-5.クローンした場所へ移動し、以下のコマンドを実行する。
+6.クローンした場所へ移動し、以下のコマンドを実行する。
 
     npm install
 
-6.開発環境（production) ビルドする。
+7.開発環境（production) ビルドする。
 
     npm run build
 
-7.手順6.で生成された dist フォルダをバックエンドリポジトリの「vuejs」フォルダ内にコピーする
+8.手順6.で生成された dist フォルダをバックエンドリポジトリの「vuejs」フォルダ内にコピーする
 
     \template-vue-flask
     ├─venv
@@ -47,9 +51,9 @@ https://github.com/0gravity000/template-vue
                 ├─img
                 └─js
 
-8.バックエンド側の \template-vue-flask フォルダに移動し、仮想環境を Activate する。
+9.バックエンド側の \template-vue-flask フォルダに移動し、仮想環境を Activate する。
 
-9.ローカルサーバーを起動し、正常に表示されることを確認する。
+10.ローカルサーバーを起動し、正常に表示されることを確認する。
 
     python3 main.py
 
