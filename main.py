@@ -15,17 +15,24 @@
 from flask import Flask, render_template, redirect, url_for
 from flask_restful import reqparse, abort, Api, Resource
 import logging
+#from google.appengine.ext import ndb   これは2.x系 3.x系は使えない
+from google.cloud import datastore
+import json
+from datetime import date, datetime
 
 # If `entrypoint` is not defined in app.yaml, App Engine will look for an app
 # called `app` in `main.py`.
 app = Flask(__name__, static_folder='./vuejs/dist/static', template_folder='./vuejs/dist')
 api = Api(app)
 
+'''
+ダミーアカウント
 accounts = [
     {'id': 1, 'email':"foo@example.com", 'password': '1111'},
     {'id': 2, 'email':"bar@example.com", 'password': '2222'},
     {'id': 3, 'email':"hoge@example.com", 'password': '3333'},
 ]
+'''
 
 # LEVEL を DEBUG に変更
 logging.basicConfig(level=logging.DEBUG)
@@ -38,30 +45,79 @@ def abort_if_account_doesnt_exist(account_id):
     if account_id not in accounts:
         abort(404, message="Account {} doesn't exist".format(account_id))
 
+# flask_restful
 # Account
 # shows a list of all accounts, and lets you POST to add new account
-class Account(Resource):
-    def get(self):
-        return accounts
+class AccountRestful(Resource):
+    def get(self):  
+        pass
+        '''
+        #デバッグ用 本番は動作させない
+        accounts = fetch_account()
+        logging.debug(accounts)
+        res = []
+        for entity in accounts:
+            res.append(
+                {
+                    "id": entity.key.id,
+                    "email": entity["email"],
+                    "password": entity["password"],
+                    "created_at": entity["created_at"],
+                    "updated_at": entity["updated_at"],
+                }
+            )
+        return res
+        '''
 
     def post(self):
         err = None
         logging.debug('now in Account post')
         args = parser.parse_args()
         logging.debug(args)
-        account_id = len(accounts)+1
-        logging.debug(account_id)
-        accounts.append({'id': account_id, 'email': args["email"], 'password': args["password"]})
-        logging.debug(accounts[account_id-1])
+        account = store_account(email=args["email"], password=args["password"])
         logging.debug('now leave Account post')
         #redirect(url_for('is_posted_succss', err='err')) バックエンドでリダイレクトできない。要調査
         #redirect('http://127.0.0.1:5000')
-        return accounts[account_id-1], 201
+        return account, 201
 
 ##
 ## Actually setup the Api resource routing here
 ##
-api.add_resource(Account, '/api/accounts')
+api.add_resource(AccountRestful, '/api/accounts')
+
+# Cloud Datastore
+datastore_client = datastore.Client()
+
+def store_account(email, password):
+    dt_now = datetime.now()
+    # print(dt_now)
+    entity = datastore.Entity(key=datastore_client.key('Accounts'))
+    accountObj = {
+        'email': email,
+        'password': password,
+        'created_at': json.dumps(dt_now, default=json_serial),
+        'updated_at': json.dumps(dt_now, default=json_serial)
+        }
+    entity.update(accountObj)
+    datastore_client.put(entity)
+    return accountObj
+
+def fetch_account():
+    query = datastore_client.query(kind='Accounts')
+    query.order = ['-updated_at']
+    accounts = query.fetch()
+    return accounts
+
+def json_serial(obj):
+    if isinstance(obj, (datetime, date)):   # 日時の場合はisoformatに
+        return obj.isoformat()
+    if hasattr(obj, '__iter__'):  # イテラブルなものはリストに 不要かも
+        return list(obj)
+    else:   # それ以外は文字列に
+        return str(obj)
+    raise TypeError (f'Type {obj} not serializable')
+
+
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
@@ -70,6 +126,7 @@ def index(path):
 
 '''
 以下は動作しなかった
+ルーチィングはvue側で制御する
 
 @app.route('/register', methods=['POST'])
 def is_posted_succss(err):
