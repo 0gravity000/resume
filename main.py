@@ -20,11 +20,14 @@ from google.cloud import datastore
 import json
 from datetime import date, datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import LoginManager, UserMixin, login_user
 
 # If `entrypoint` is not defined in app.yaml, App Engine will look for an app
 # called `app` in `main.py`.
 app = Flask(__name__, static_folder='./vuejs/dist/static', template_folder='./vuejs/dist')
-api = Api(app)
+api = Api(app)  #flask_restful
+login_manager = LoginManager()  #flask_login
+login_manager.init_app(app) #flask_login
 
 '''
 ダミーアカウント
@@ -41,6 +44,7 @@ logging.basicConfig(level=logging.DEBUG)
 parser = reqparse.RequestParser()
 parser.add_argument('email')
 parser.add_argument('password')
+#parser.add_argument('nickname')
 
 def abort_if_account_doesnt_exist(account_id):
     if account_id not in accounts:
@@ -54,7 +58,7 @@ class AccountRestful(Resource):
         pass
         '''
         #デバッグ用 本番は動作させない
-        accounts = fetch_account()
+        accounts = fetch_all_account()
         logging.debug(accounts)
         res = []
         for entity in accounts:
@@ -84,12 +88,42 @@ class AccountRestful(Resource):
         #redirect('http://127.0.0.1:5000')
         return account, 201
 
+# flask_restful
+# Login
+class LoginRestful(Resource):
+    def post(self):
+        err = None
+        logging.debug('now in Login post')
+        args = parser.parse_args()
+        logging.debug(args)
+        #email = args["email"]
+        #hashed_password=generate_password_hash(args["password"], method='sha256')
+        #logging.debug(hashed_password)
+        #remember = True if request.form.get('remember') else False
+        user = Account.fetch_account(args["email"])
+        logging.debug(user)
+        #logging.debug(user[0]["email"])
+
+        # check if the user actually exists
+        # take the user-supplied password, hash it, and compare it to the hashed password in the database
+        if not user or not check_password_hash(user[0]["password"], args["password"]):
+            # flash('Please check your login details and try again.')   #どうやるか要調査
+            logging.debug('now leave Login post: auth NG')
+            return user, 401
+            #return redirect(url_for('auth.login')) # if the user doesn't exist or password is wrong, reload the page
+
+        # if the above check passes, then we know the user has the right credentials
+        logging.debug('now leave Login post: auth OK')
+        return user, 201
+        #return redirect(url_for('main.profile'))
+
 ##
 ## Actually setup the Api resource routing here
 ##
 api.add_resource(AccountRestful, '/api/accounts')
+api.add_resource(LoginRestful, '/api/login')
 
-# Cloud Datastore
+# Cloud Datastore ################################
 datastore_client = datastore.Client()
 
 def store_account(email, hashed_password):
@@ -106,7 +140,7 @@ def store_account(email, hashed_password):
     datastore_client.put(entity)
     return accountObj
 
-def fetch_account():
+def fetch_all_account():
     query = datastore_client.query(kind='Accounts')
     query.order = ['-updated_at']
     accounts = query.fetch()
@@ -121,8 +155,34 @@ def json_serial(obj):
         return str(obj)
     raise TypeError (f'Type {obj} not serializable')
 
+# Flask-login Model ###############################
+class Account(UserMixin):
+    id = ""
+    email = ""
+    password = ""
+    user_id = ""
+    created_at = ""
+    updated_at = ""
 
+    def fetch_account(email):
+        query = datastore_client.query(kind='Accounts')
+        query.add_filter("email", "=", email)
+        query.order = ['-updated_at']
+        account = list(query.fetch())
+        #logging.debug(account)
+        #logging.debug(account[0]["email"])
+        return account
 
+class User(UserMixin):
+    pass
+
+# Flask-login ###############################
+@login_manager.user_loader
+def load_user(email):
+    account = Account.fetch_account(email)
+    return account
+
+# router
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def index(path):

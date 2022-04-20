@@ -1,0 +1,7 @@
+indexes:
+
+- kind: Accounts
+  properties:
+  - name: email
+  - name: updated_at
+    direction: desc
