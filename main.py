@@ -19,6 +19,7 @@ import logging
 from google.cloud import datastore
 import json
 from datetime import date, datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # If `entrypoint` is not defined in app.yaml, App Engine will look for an app
 # called `app` in `main.py`.
@@ -74,7 +75,10 @@ class AccountRestful(Resource):
         logging.debug('now in Account post')
         args = parser.parse_args()
         logging.debug(args)
-        account = store_account(email=args["email"], password=args["password"])
+        account = store_account(
+                email=args["email"],
+                hashed_password=generate_password_hash(args["password"], method='sha256')
+            )
         logging.debug('now leave Account post')
         #redirect(url_for('is_posted_succss', err='err')) バックエンドでリダイレクトできない。要調査
         #redirect('http://127.0.0.1:5000')
@@ -88,13 +92,13 @@ api.add_resource(AccountRestful, '/api/accounts')
 # Cloud Datastore
 datastore_client = datastore.Client()
 
-def store_account(email, password):
+def store_account(email, hashed_password):
     dt_now = datetime.now()
     # print(dt_now)
     entity = datastore.Entity(key=datastore_client.key('Accounts'))
     accountObj = {
         'email': email,
-        'password': password,
+        'password': hashed_password,
         'created_at': json.dumps(dt_now, default=json_serial),
         'updated_at': json.dumps(dt_now, default=json_serial)
         }
