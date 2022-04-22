@@ -58,7 +58,7 @@ def abort_if_account_doesnt_exist(account_id):
 # flask_restful
 # Account
 # shows a list of all accounts, and lets you POST to add new account
-class AccountRestful(Resource):
+class RegisterRestful(Resource):
     def get(self):  
         pass
         '''
@@ -147,7 +147,7 @@ class TopRestful(Resource):
 ##
 ## Actually setup the Api resource routing here
 ##
-api.add_resource(AccountRestful, '/api/accounts')
+api.add_resource(RegisterRestful, '/api/register')
 api.add_resource(LoginRestful, '/api/login')
 api.add_resource(LogoutRestful, '/api/logout')
 api.add_resource(TopRestful, '/api/top')
