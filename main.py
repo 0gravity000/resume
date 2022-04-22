@@ -20,7 +20,7 @@ from google.cloud import datastore
 import json
 from datetime import date, datetime
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from datastore_entity import DatastoreEntity, EntityValue
 import secrets
 
@@ -141,14 +141,33 @@ class LogoutRestful(Resource):
         logout_user()
         logging.debug('now leave Logout get')
         #return redirect('TopView')
-        return "guest"
+        return ""
 
 class TopRestful(Resource):
     def get(self):
         logging.debug('now in top get')
         logging.debug('now leave top get')
         return "TopRestful"
-      
+
+class AuthCheckRestful(Resource):
+    def get(self):
+        logging.debug('now in AuthCheck get')
+        if current_user.is_authenticated:
+            authState = True
+            authUser = current_user.email
+        else:
+            authState = False
+            authUser = ""
+
+        res = {
+            "is_authenticated": authState,
+            "auth_user": authUser
+        }
+
+        logging.debug(authUser)
+        logging.debug('now leave AuthCheck get')
+        return res
+
 ##
 ## Actually setup the Api resource routing here
 ##
@@ -156,6 +175,7 @@ api.add_resource(RegisterRestful, '/api/register')
 api.add_resource(LoginRestful, '/api/login')
 api.add_resource(LogoutRestful, '/api/logout')
 api.add_resource(TopRestful, '/api/top')
+api.add_resource(AuthCheckRestful, '/api/authcheck')
 
 # Cloud Datastore ################################
 datastore_client = datastore.Client()
