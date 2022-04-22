@@ -84,14 +84,19 @@ class RegisterRestful(Resource):
         logging.debug('now in Account post')
         args = parser.parse_args()
         logging.debug(args)
-        account = store_account(
-                email=args["email"],
-                hashed_password=generate_password_hash(args["password"], method='sha256')
-            )
+        user = Account()
+        user.email = args["email"]
+        user.password = generate_password_hash(args["password"], method='sha256')
+        user.save()
+        #account = store_account(
+        #        email=args["email"],
+        #        hashed_password=generate_password_hash(args["password"], method='sha256')
+        #    )
+
         logging.debug('now leave Account post')
         #redirect(url_for('is_posted_succss', err='err')) バックエンドでリダイレクトできない。要調査
         #redirect('http://127.0.0.1:5000')
-        return account, 201
+        return user.email, 201
 
 # flask_restful
 # Login
@@ -136,7 +141,7 @@ class LogoutRestful(Resource):
         logout_user()
         logging.debug('now leave Logout get')
         #return redirect('TopView')
-        return "LogoutRestful"
+        return "guest"
 
 class TopRestful(Resource):
     def get(self):
@@ -186,17 +191,19 @@ def json_serial(obj):
 
 # Flask-login Model ###############################
 class Account(DatastoreEntity, UserMixin):
-    id = EntityValue(None)
+    #id = EntityValue(None)
     email = EntityValue(None)
     password = EntityValue(None)
     #user_id = EntityValue(None)
-    created_at = EntityValue(None)
-    updated_at = EntityValue(None)
+    created_at = EntityValue(datetime.utcnow())
+    updated_at = EntityValue(datetime.utcnow())
     #date_created = EntityValue(datetime.datetime.utcnow())
     # specify the name of the entity kind.
     # This is REQUIRED. Raises ValueError otherwise
     __kind__ = "Accounts"
 
+    def get_id(self):
+        return (self.email)
     """
     UserMixinを継承 メソッド get_id()
     このメソッドは、このユーザーを一意に識別するstrを返す必要があり、
@@ -223,9 +230,9 @@ class User(UserMixin):
 # このコールバックは、セッションに保存されているユーザーIDからユーザーオブジェクトをリロードするために使用されます。 
 # ユーザーのstr IDを取得し、対応するユーザーオブジェクトを返す必要があります。
 @login_manager.user_loader
-def load_user(account_id):  #userをロードするためのcallback functionを定義
+def load_user(email):  #userをロードするためのcallback functionを定義
     #load_userの引数は、Userクラスで定義したget_id()が返す値です。
-    account = Account().get_obj('id', account_id)
+    account = Account().get_obj('email', email)
     return account
 
 @app.route('/', defaults={'path': ''})
