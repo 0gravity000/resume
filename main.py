@@ -23,6 +23,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from datastore_entity import DatastoreEntity, EntityValue
 import secrets
+from common import make_json_response
 
 # If `entrypoint` is not defined in app.yaml, App Engine will look for an app
 # called `app` in `main.py`.
@@ -50,10 +51,6 @@ parser = reqparse.RequestParser()
 parser.add_argument('email')
 parser.add_argument('password')
 #parser.add_argument('nickname')
-
-def abort_if_account_doesnt_exist(account_id):
-    if account_id not in accounts:
-        abort(404, message="Account {} doesn't exist".format(account_id))
 
 # flask_restful
 # Account
@@ -84,19 +81,20 @@ class RegisterRestful(Resource):
         logging.debug('now in Account post')
         args = parser.parse_args()
         logging.debug(args)
+        #emailの重複チェック
+        user = Account().get_obj('email',args["email"])
+        if user:
+            return make_json_response(result="NG", is_authenticated=False, auth_user="", message="Duplicate email")
+
         user = Account()
         user.email = args["email"]
         user.password = generate_password_hash(args["password"], method='sha256')
         user.save()
-        #account = store_account(
-        #        email=args["email"],
-        #        hashed_password=generate_password_hash(args["password"], method='sha256')
-        #    )
-
+        login_user(user)    #登録成功したらログイン状態にする
         logging.debug('now leave Account post')
         #redirect(url_for('is_posted_succss', err='err')) バックエンドでリダイレクトできない。要調査
         #redirect('http://127.0.0.1:5000')
-        return user.email, 201
+        return make_json_response(result="OK",is_authenticated=True,auth_user=user.email, message=""), 201
 
 # flask_restful
 # Login
@@ -179,26 +177,6 @@ api.add_resource(AuthCheckRestful, '/api/authcheck')
 
 # Cloud Datastore ################################
 datastore_client = datastore.Client()
-
-def store_account(email, hashed_password):
-    dt_now = datetime.now()
-    # print(dt_now)
-    entity = datastore.Entity(key=datastore_client.key('Accounts'))
-    accountObj = {
-        'email': email,
-        'password': hashed_password,
-        'created_at': json.dumps(dt_now, default=json_serial),
-        'updated_at': json.dumps(dt_now, default=json_serial)
-        }
-    entity.update(accountObj)
-    datastore_client.put(entity)
-    return accountObj
-
-def fetch_all_account():
-    query = datastore_client.query(kind='Accounts')
-    query.order = ['-updated_at']
-    accounts = query.fetch()
-    return accounts
 
 def json_serial(obj):
     if isinstance(obj, (datetime, date)):   # 日時の場合はisoformatに
