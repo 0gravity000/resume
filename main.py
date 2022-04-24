@@ -21,9 +21,9 @@ import json
 from datetime import date, datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from datastore_entity import DatastoreEntity, EntityValue
 import secrets
 from common import make_json_response
+from model import Account
 
 # If `entrypoint` is not defined in app.yaml, App Engine will look for an app
 # called `app` in `main.py`.
@@ -112,6 +112,8 @@ class LoginRestful(Resource):
         user = Account().get_obj('email',args["email"])
         #user = Account.fetch_account(args["email"])
         logging.debug(user)
+        logging.debug(user.key)
+        logging.debug(user.key.id)
         #logging.debug(user[0]["email"])
 
         # check if the user actually exists
@@ -187,42 +189,6 @@ def json_serial(obj):
         return str(obj)
     raise TypeError (f'Type {obj} not serializable')
 
-# Flask-login Model ###############################
-class Account(DatastoreEntity, UserMixin):
-    #id = EntityValue(None)
-    email = EntityValue(None)
-    password = EntityValue(None)
-    #user_id = EntityValue(None)
-    created_at = EntityValue(datetime.utcnow())
-    updated_at = EntityValue(datetime.utcnow())
-    #date_created = EntityValue(datetime.datetime.utcnow())
-    # specify the name of the entity kind.
-    # This is REQUIRED. Raises ValueError otherwise
-    __kind__ = "Accounts"
-
-    def get_id(self):
-        return (self.email)
-    """
-    UserMixinを継承 メソッド get_id()
-    このメソッドは、このユーザーを一意に識別するstrを返す必要があり、
-    user_loaderコールバックからユーザーをロードするために使用できます。
-    これはstrでなければならないことに注意してください。
-    IDがネイティブにintまたはその他の型である場合は、strに変換する必要があります。
-    https://flask-login.readthedocs.io/en/latest/_modules/flask_login/mixins/#UserMixin
-    """
-
-    def fetch_account(email):
-        query = datastore_client.query(kind='Accounts')
-        query.add_filter("email", "=", email)
-        query.order = ['-updated_at']
-        account = list(query.fetch())
-        #logging.debug(account)
-        #logging.debug(account[0]["email"])
-        return account
-
-class User(UserMixin):
-    pass
-
 # Flask-login ###############################
 # user_loaderコールバックを提供する必要があります。 
 # このコールバックは、セッションに保存されているユーザーIDからユーザーオブジェクトをリロードするために使用されます。 
@@ -230,7 +196,9 @@ class User(UserMixin):
 @login_manager.user_loader
 def load_user(email):  #userをロードするためのcallback functionを定義
     #load_userの引数は、Userクラスで定義したget_id()が返す値です。
-    account = Account().get_obj('email', email)
+    #これはstrでなければならないことに注意してください。
+    account = Account().get_obj("email", email)
+    #account = Account().get_obj_with_key(int(key_id))  #NG
     return account
 
 @app.route('/', defaults={'path': ''})
