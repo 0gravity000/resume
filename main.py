@@ -22,8 +22,8 @@ from datetime import date, datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import secrets
-from common import make_json_response
-from model import Account
+from common import make_json_response, convert_userobj_to_json
+from model import Account, User
 
 # If `entrypoint` is not defined in app.yaml, App Engine will look for an app
 # called `app` in `main.py`.
@@ -47,15 +47,15 @@ accounts = [
 # LEVEL を DEBUG に変更
 logging.basicConfig(level=logging.DEBUG)
 
-parser = reqparse.RequestParser()
-parser.add_argument('email')
-parser.add_argument('password')
-#parser.add_argument('nickname')
-
 # flask_restful
 # Account
 # shows a list of all accounts, and lets you POST to add new account
 class RegisterRestful(Resource):
+    parser = reqparse.RequestParser()
+    parser.add_argument('email')
+    parser.add_argument('password')
+    #parser.add_argument('nickname')
+
     def get(self):  
         pass
         '''
@@ -79,60 +79,75 @@ class RegisterRestful(Resource):
     def post(self):
         err = None
         logging.debug('now in Account post')
-        args = parser.parse_args()
+        args = self.parser.parse_args()
         logging.debug(args)
         #emailの重複チェック
-        user = Account().get_obj('email',args["email"])
-        if user:
-            return make_json_response(result="NG", is_authenticated=False, auth_user="", message="Duplicate email")
+        account = Account().get_obj('email',args["email"])
+        if account:
+            return make_json_response(result="NG", is_authenticated=False, \
+                auth_account_id="", auth_account_email="", message="Duplicate email")
 
-        user = Account()
-        user.email = args["email"]
-        user.password = generate_password_hash(args["password"], method='sha256')
+        #Accountオブジェクトを新規作成
+        account = Account()
+        account.email = args["email"]
+        account.password = generate_password_hash(args["password"], method='sha256')
+        account.save()
+        #Usersテーブルも作成 account_idカラムのみセット
+        user = User()
+        account = Account().get_obj('email',args["email"])
+        user.account_id = str(account.key.id)
         user.save()
-        login_user(user)    #登録成功したらログイン状態にする
+
+        login_user(account)    #登録成功したらログイン状態にする
         logging.debug('now leave Account post')
         #redirect(url_for('is_posted_succss', err='err')) バックエンドでリダイレクトできない。要調査
         #redirect('http://127.0.0.1:5000')
-        return make_json_response(result="OK",is_authenticated=True,auth_user=user.email, message=""), 201
+        return make_json_response(result="OK",is_authenticated=True, \
+            auth_account_id=str(account.key.id), auth_account_email=account.email, message=""), 201
 
 # flask_restful
 # Login
 class LoginRestful(Resource):
+    parser = reqparse.RequestParser()
+    parser.add_argument('email')
+    parser.add_argument('password')
+
     def post(self):
         err = None
         logging.debug('now in Login post')
-        args = parser.parse_args()
+        args = self.parser.parse_args()
         logging.debug(args)
         #email = args["email"]
         #hashed_password=generate_password_hash(args["password"], method='sha256')
         #logging.debug(hashed_password)
         #remember = True if request.form.get('remember') else False
 
-        user = Account().get_obj('email',args["email"])
-        #user = Account.fetch_account(args["email"])
-        logging.debug(user)
-        logging.debug(user.key)
-        logging.debug(user.key.id)
-        #logging.debug(user[0]["email"])
+        account = Account().get_obj('email',args["email"])
+        #account = Account.fetch_account(args["email"])
+        logging.debug(account)
+        logging.debug(account.key)
+        logging.debug(account.key.id)
+        #logging.debug(account[0]["email"])
 
         # check if the user actually exists
         # take the user-supplied password, hash it, and compare it to the hashed password in the database
-        if not user or not check_password_hash(user.password, args["password"]):
+        if not account or not check_password_hash(account.password, args["password"]):
         #if not user or not check_password_hash(user[0]["password"], args["password"]):
             # flash('Please check your login details and try again.')   #どうやるか要調査
             logging.debug('now leave Login post: auth NG')
-            return user.email, 401
+            return make_json_response(result="NG", is_authenticated=False, \
+                auth_account_id="", auth_account_email="", message="Login failed")            #return account.email, 401
             #return redirect(url_for('auth.login')) # if the user doesn't exist or password is wrong, reload the page
 
         # if the above check passes, then we know the user has the right credentials
         # login_userにuserを渡すと、後は必要なことはflask-loginがやってくれます。
         # 主にログイン状態の保持に必要な情報をセッションに保存しているのと、
         # リクエストコンテキストのuserのアップデート、ログインシグナルの送信などをしてくれています
-        login_user(user)
+        login_user(account)
         logging.debug('now leave Login post: auth OK')
-        return user.email, 201
-        #return redirect(url_for('main.profile'))
+        return make_json_response(result="OK", is_authenticated=True, \
+            auth_account_id=str(account.key.id), auth_account_email=account.email, message="")
+        #return account.email, 201
 
 class LogoutRestful(Resource):
     def get(self):
@@ -141,32 +156,86 @@ class LogoutRestful(Resource):
         logout_user()
         logging.debug('now leave Logout get')
         #return redirect('TopView')
-        return ""
-
-class TopRestful(Resource):
-    def get(self):
-        logging.debug('now in top get')
-        logging.debug('now leave top get')
-        return "TopRestful"
+        return make_json_response(result="OK", is_authenticated=False, \
+            auth_account_id="", auth_account_email="", message="")
 
 class AuthCheckRestful(Resource):
     def get(self):
         logging.debug('now in AuthCheck get')
         if current_user.is_authenticated:
-            authState = True
-            authUser = current_user.email
+            res = make_json_response(result="OK",is_authenticated=True, \
+                auth_account_id=str(current_user.key.id), auth_account_email=current_user.email, message="")
         else:
-            authState = False
-            authUser = ""
+            res = make_json_response(result="OK",is_authenticated=False, \
+                auth_account_id="", auth_account_email="", message="")
 
-        res = {
-            "is_authenticated": authState,
-            "auth_user": authUser
-        }
-
-        logging.debug(authUser)
         logging.debug('now leave AuthCheck get')
         return res
+
+#このAPIはログイン時にしか呼ばれない
+class UserRestful(Resource):
+    parser = reqparse.RequestParser()
+    parser.add_argument('lastname')
+    parser.add_argument('firstname')
+    parser.add_argument('lastname_kana')
+    parser.add_argument('firstname_kana')
+    parser.add_argument('birth_year')
+    parser.add_argument('birth_month')
+    parser.add_argument('birth_month')
+    parser.add_argument('birth_day')
+    parser.add_argument('zipcode')
+    parser.add_argument('address')
+    parser.add_argument('address_kana')
+    parser.add_argument('contact')
+    parser.add_argument('contact_kana')
+    parser.add_argument('self_pr')
+    parser.add_argument('personal_request')
+    parser.add_argument('commuting_time')
+    parser.add_argument('dependents')
+    parser.add_argument('spouse')
+    parser.add_argument('dependents_of_spouse')
+
+    def get(self):
+        logging.debug('now in user get')
+        logging.debug(current_user.key.id)
+        userobj = User().get_obj('account_id',str(current_user.key.id))
+        #オブジェクトはretuenでエラーになるのでjsonに変換する
+        user = convert_userobj_to_json(userobj)
+        #以下だとダメ？jsonもどきだが、オブジェクトではない？ 
+        #user = json.dumps(userobj._convert_to_dict(), default=str)  
+        # "{\"contact\": null, \"contact_kana\": null, \"dependents\": null, \"zipcode\": null, \"firstname\": null, \"lastname_kana\": \"\\u3042\\u304b\\u3044\", \"commuting_time\": null, \"created_at\": \"2022-04-24 06:40:31.279068+00:00\", \"account_id\": \"5705808872472576\", \"dependents_of_spouse\": null, \"updated_at\": \"2022-04-24 11:05:00.523927+00:00\", \"lastname\": \"\\u8d64\\u4e95\", \"address_kana\": null, \"firstname_kana\": null, \"spouse\": null, \"nickname\": null, \"birth_year\": null, \"birth_day\": null, \"address\": null, \"self_pr\": null, \"personal_request\": null, \"birth_month\": null}"
+        logging.debug(user)
+        logging.debug('now leave user get')
+        return user
+
+    def post(self):
+        logging.debug('now in user post')
+        args = self.parser.parse_args()
+        logging.debug(args)
+        userobj = User().get_obj('account_id',str(current_user.key.id))
+        userobj.lastname = args["lastname"]
+        userobj.firstname = args["firstname"]
+        userobj.lastname_kana = args["lastname_kana"]
+        userobj.firstname_kana = args["firstname_kana"]
+        userobj.birth_year = args["birth_year"]
+        userobj.birth_month = args["birth_month"]
+        userobj.birth_day = args["birth_day"]
+        userobj.zipcode = args["zipcode"]
+        userobj.address = args["address"]
+        userobj.address_kana = args["address_kana"]
+        userobj.contact = args["contact"]
+        userobj.contact_kana = args["contact_kana"]
+        userobj.self_pr = args["self_pr"]
+        userobj.personal_request = args["personal_request"]
+        userobj.commuting_time = args["commuting_time"]
+        userobj.dependents = args["dependents"]
+        userobj.spouse = args["spouse"]
+        userobj.dependents_of_spouse = args["dependents_of_spouse"]
+        userobj.updated_at = datetime.utcnow()
+        userobj.save()
+
+        logging.debug('now leave user post')
+        return ""
 
 ##
 ## Actually setup the Api resource routing here
@@ -174,20 +243,11 @@ class AuthCheckRestful(Resource):
 api.add_resource(RegisterRestful, '/api/register')
 api.add_resource(LoginRestful, '/api/login')
 api.add_resource(LogoutRestful, '/api/logout')
-api.add_resource(TopRestful, '/api/top')
 api.add_resource(AuthCheckRestful, '/api/authcheck')
+api.add_resource(UserRestful, '/api/user')
 
 # Cloud Datastore ################################
 datastore_client = datastore.Client()
-
-def json_serial(obj):
-    if isinstance(obj, (datetime, date)):   # 日時の場合はisoformatに
-        return obj.isoformat()
-    if hasattr(obj, '__iter__'):  # イテラブルなものはリストに 不要かも
-        return list(obj)
-    else:   # それ以外は文字列に
-        return str(obj)
-    raise TypeError (f'Type {obj} not serializable')
 
 # Flask-login ###############################
 # user_loaderコールバックを提供する必要があります。 
