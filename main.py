@@ -179,10 +179,10 @@ class UserRestful(Resource):
     parser.add_argument('firstname')
     parser.add_argument('lastname_kana')
     parser.add_argument('firstname_kana')
-    parser.add_argument('birth_year')
-    parser.add_argument('birth_month')
-    parser.add_argument('birth_month')
-    parser.add_argument('birth_day')
+    parser.add_argument('gender' ,type=int)
+    parser.add_argument('birth_year' ,type=int)
+    parser.add_argument('birth_month' ,type=int)
+    parser.add_argument('birth_day' ,type=int)
     parser.add_argument('zipcode')
     parser.add_argument('address')
     parser.add_argument('address_kana')
@@ -192,8 +192,8 @@ class UserRestful(Resource):
     parser.add_argument('personal_request')
     parser.add_argument('commuting_time')
     parser.add_argument('dependents')
-    parser.add_argument('spouse')
-    parser.add_argument('dependents_of_spouse')
+    parser.add_argument('spouse' ,type=bool)
+    parser.add_argument('dependents_of_spouse' ,type=bool)
 
     def get(self):
         logging.debug('now in user get')
@@ -217,6 +217,7 @@ class UserRestful(Resource):
         userobj.firstname = args["firstname"]
         userobj.lastname_kana = args["lastname_kana"]
         userobj.firstname_kana = args["firstname_kana"]
+        userobj.gender = args["gender"]
         userobj.birth_year = args["birth_year"]
         userobj.birth_month = args["birth_month"]
         userobj.birth_day = args["birth_day"]
@@ -237,6 +238,24 @@ class UserRestful(Resource):
         logging.debug('now leave user post')
         return ""
 
+class EducationRestful(Resource):
+    parser = reqparse.RequestParser()
+    parser.add_argument('event_year' ,type=int)
+    parser.add_argument('event_month' ,type=int)
+    parser.add_argument('event')
+
+class WorkhistoyRestful(Resource):
+    parser = reqparse.RequestParser()
+    parser.add_argument('event_year' ,type=int)
+    parser.add_argument('event_month' ,type=int)
+    parser.add_argument('event')
+
+class Qualification(Resource):
+    parser = reqparse.RequestParser()
+    parser.add_argument('qualification_year' ,type=int)
+    parser.add_argument('qualification_month' ,type=int)
+    parser.add_argument('qualification')
+
 ##
 ## Actually setup the Api resource routing here
 ##
@@ -245,6 +264,10 @@ api.add_resource(LoginRestful, '/api/login')
 api.add_resource(LogoutRestful, '/api/logout')
 api.add_resource(AuthCheckRestful, '/api/authcheck')
 api.add_resource(UserRestful, '/api/user')
+api.add_resource(EducationRestful, '/api/education')
+api.add_resource(WorkhistoyRestful, '/api/workhistoy')
+api.add_resource(Qualification, '/api/qualification')
+
 
 # Cloud Datastore ################################
 datastore_client = datastore.Client()

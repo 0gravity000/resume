@@ -34,6 +34,7 @@ class User(DatastoreEntity, UserMixin):
     firstname = EntityValue(None)
     lastname_kana = EntityValue(None)
     firstname_kana = EntityValue(None)
+    gender = EntityValue(None)
     birth_year = EntityValue(None)
     birth_month = EntityValue(None)
     birth_day = EntityValue(None)
@@ -53,5 +54,38 @@ class User(DatastoreEntity, UserMixin):
 
     __kind__ = "Users"
 
-def get_id(self):
-    return (self.account_id)
+    def get_id(self):
+        return (self.account_id)
+
+class Education(DatastoreEntity, UserMixin):
+    account_id = EntityValue(None)
+    event_year = EntityValue(None)
+    event_month = EntityValue(None)
+    event = EntityValue(None)
+    created_at = EntityValue(datetime.utcnow())
+    updated_at = EntityValue(datetime.utcnow())
+
+    def get_id(self):
+        return (self.account_id)
+
+class Workhistory(DatastoreEntity, UserMixin):
+    account_id = EntityValue(None)
+    event_year = EntityValue(None)
+    event_month = EntityValue(None)
+    event = EntityValue(None)
+    created_at = EntityValue(datetime.utcnow())
+    updated_at = EntityValue(datetime.utcnow())
+
+    def get_id(self):
+        return (self.account_id)
+
+class Qualification(DatastoreEntity, UserMixin):
+    account_id = EntityValue(None)
+    qualification_year = EntityValue(None)
+    qualification_month = EntityValue(None)
+    qualification = EntityValue(None)
+    created_at = EntityValue(datetime.utcnow())
+    updated_at = EntityValue(datetime.utcnow())
+
+    def get_id(self):
+        return (self.account_id)
