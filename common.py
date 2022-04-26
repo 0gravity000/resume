@@ -21,6 +21,7 @@ def convert_userobj_to_json(userobj):
         "firstname": userobj.firstname,
         "lastname_kana": userobj.lastname_kana,
         "firstname_kana": userobj.firstname_kana,
+        "gender": userobj.gender,
         "birth_year": userobj.birth_year,
         "birth_month": userobj.birth_month,
         "birth_day": userobj.birth_day,

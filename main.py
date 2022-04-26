@@ -16,14 +16,15 @@ from flask import Flask, render_template, redirect, url_for, session
 from flask_restful import reqparse, abort, Api, Resource
 import logging
 #from google.appengine.ext import ndb   これは2.x系 3.x系は使えない
-from google.cloud import datastore
+from google.cloud import datastore, ndb
 import json
 from datetime import date, datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import secrets
 from common import make_json_response, convert_userobj_to_json
-from model import Account, User
+#from model import Account, User
+from model import Accounts, Users
 
 # If `entrypoint` is not defined in app.yaml, App Engine will look for an app
 # called `app` in `main.py`.
@@ -81,29 +82,71 @@ class RegisterRestful(Resource):
         logging.debug('now in Account post')
         args = self.parser.parse_args()
         logging.debug(args)
-        #emailの重複チェック
-        account = Account().get_obj('email',args["email"])
-        if account:
-            return make_json_response(result="NG", is_authenticated=False, \
-                auth_account_id="", auth_account_email="", message="Duplicate email")
+        client = ndb.Client()
+        logging.debug(client)
+        with client.context():
+            '''
+            account = Account(
+                email="testxxx@example.com",
+                password=generate_password_hash("1111", method='sha256'),
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+                )
+            key = account.put()
+            logging.debug(key)
+            '''
 
-        #Accountオブジェクトを新規作成
-        account = Account()
-        account.email = args["email"]
-        account.password = generate_password_hash(args["password"], method='sha256')
-        account.save()
-        #Usersテーブルも作成 account_idカラムのみセット
-        user = User()
-        account = Account().get_obj('email',args["email"])
-        user.account_id = str(account.key.id)
-        user.save()
+            #emailの重複チェック
+            account = Accounts.query().filter(Accounts.email == args["email"])
+            logging.debug(account)
+            logging.debug(account.get())
 
-        login_user(account)    #登録成功したらログイン状態にする
-        logging.debug('now leave Account post')
-        #redirect(url_for('is_posted_succss', err='err')) バックエンドでリダイレクトできない。要調査
-        #redirect('http://127.0.0.1:5000')
-        return make_json_response(result="OK",is_authenticated=True, \
-            auth_account_id=str(account.key.id), auth_account_email=account.email, message=""), 201
+            #account = Account().get_obj('email',args["email"])
+            if account.get():
+                return make_json_response(result="NG", is_authenticated=False, \
+                    auth_account_id="", auth_account_email="", message="Duplicate email")
+
+            #Accountオブジェクトを新規作成
+            account = Accounts(
+                email=args["email"],
+                password=generate_password_hash(args["password"], method='sha256'),
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+                )
+            key = account.put()
+            logging.debug(key)
+            '''
+            account = Account()
+            account.email = args["email"]
+            account.password = generate_password_hash(args["password"], method='sha256')
+            account.save()
+            '''
+            #Usersテーブルも作成 account_idカラムのみセット
+            account = Accounts.query().filter(Accounts.email == args["email"])
+            logging.debug(account.get().key.id())
+            user = Users(
+                account_id=str(account.get().key.id()),
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+                )
+            key = user.put()
+            logging.debug(key)
+            '''
+            user = User()
+            account = Account().get_obj('email',args["email"])
+            user.account_id = str(account.key.id)
+            user.save()
+            '''
+            account = Accounts.query().filter(Accounts.email == args["email"])
+            logging.debug(account.get())
+            logging.debug(account.get().key)
+            logging.debug(account.get().key.id())
+            login_user(account.get())    #登録成功したらログイン状態にする
+            logging.debug('now leave Account post')
+            #redirect(url_for('is_posted_succss', err='err')) バックエンドでリダイレクトできない。要調査
+            #redirect('http://127.0.0.1:5000')
+            return make_json_response(result="OK",is_authenticated=True, \
+                auth_account_id=str(account.get().key.id()), auth_account_email=account.get().email, message=""), 201
 
 # flask_restful
 # Login
@@ -121,56 +164,66 @@ class LoginRestful(Resource):
         #hashed_password=generate_password_hash(args["password"], method='sha256')
         #logging.debug(hashed_password)
         #remember = True if request.form.get('remember') else False
+        client = ndb.Client()
+        with client.context():
+            account = Accounts.query().filter(Accounts.email == args["email"])
 
-        account = Account().get_obj('email',args["email"])
-        #account = Account.fetch_account(args["email"])
-        logging.debug(account)
-        logging.debug(account.key)
-        logging.debug(account.key.id)
-        #logging.debug(account[0]["email"])
+            '''
+            account = Account().get_obj('email',args["email"])
+            #account = Account.fetch_account(args["email"])
+            logging.debug(account)
+            logging.debug(account.key)
+            logging.debug(account.key.id)
+            #logging.debug(account[0]["email"])
+            '''
 
-        # check if the user actually exists
-        # take the user-supplied password, hash it, and compare it to the hashed password in the database
-        if not account or not check_password_hash(account.password, args["password"]):
-        #if not user or not check_password_hash(user[0]["password"], args["password"]):
-            # flash('Please check your login details and try again.')   #どうやるか要調査
-            logging.debug('now leave Login post: auth NG')
-            return make_json_response(result="NG", is_authenticated=False, \
-                auth_account_id="", auth_account_email="", message="Login failed")            #return account.email, 401
-            #return redirect(url_for('auth.login')) # if the user doesn't exist or password is wrong, reload the page
+            # check if the user actually exists
+            # take the user-supplied password, hash it, and compare it to the hashed password in the database
+            # アカウントの存在、パスワードが一致するかチェック
+            if not account.get() or not check_password_hash(account.get().password, args["password"]):
+            #if not user or not check_password_hash(user[0]["password"], args["password"]):
+                # flash('Please check your login details and try again.')   #どうやるか要調査
+                logging.debug('now leave Login post: auth NG')
+                return make_json_response(result="NG", is_authenticated=False, \
+                    auth_account_id="", auth_account_email="", message="Login failed")            #return account.email, 401
+                #return redirect(url_for('auth.login')) # if the user doesn't exist or password is wrong, reload the page
 
-        # if the above check passes, then we know the user has the right credentials
-        # login_userにuserを渡すと、後は必要なことはflask-loginがやってくれます。
-        # 主にログイン状態の保持に必要な情報をセッションに保存しているのと、
-        # リクエストコンテキストのuserのアップデート、ログインシグナルの送信などをしてくれています
-        login_user(account)
-        logging.debug('now leave Login post: auth OK')
-        return make_json_response(result="OK", is_authenticated=True, \
-            auth_account_id=str(account.key.id), auth_account_email=account.email, message="")
-        #return account.email, 201
+            # if the above check passes, then we know the user has the right credentials
+            # login_userにuserを渡すと、後は必要なことはflask-loginがやってくれます。
+            # 主にログイン状態の保持に必要な情報をセッションに保存しているのと、
+            # リクエストコンテキストのuserのアップデート、ログインシグナルの送信などをしてくれています
+            login_user(account.get())
+            logging.debug('now leave Login post: auth OK')
+            return make_json_response(result="OK", is_authenticated=True, \
+                auth_account_id=str(account.get().key.id()), auth_account_email=account.get().email, message="")
+            #return account.email, 201
 
 class LogoutRestful(Resource):
     def get(self):
-        err = None
-        logging.debug('now in Logout get')
-        logout_user()
-        logging.debug('now leave Logout get')
-        #return redirect('TopView')
-        return make_json_response(result="OK", is_authenticated=False, \
-            auth_account_id="", auth_account_email="", message="")
+        client = ndb.Client()
+        with client.context():
+            err = None
+            logging.debug('now in Logout get')
+            logout_user()
+            logging.debug('now leave Logout get')
+            #return redirect('TopView')
+            return make_json_response(result="OK", is_authenticated=False, \
+                auth_account_id="", auth_account_email="", message="")
 
 class AuthCheckRestful(Resource):
     def get(self):
         logging.debug('now in AuthCheck get')
-        if current_user.is_authenticated:
-            res = make_json_response(result="OK",is_authenticated=True, \
-                auth_account_id=str(current_user.key.id), auth_account_email=current_user.email, message="")
-        else:
-            res = make_json_response(result="OK",is_authenticated=False, \
-                auth_account_id="", auth_account_email="", message="")
+        client = ndb.Client()
+        with client.context():
+            if current_user.is_authenticated:
+                res = make_json_response(result="OK",is_authenticated=True, \
+                    auth_account_id=str(current_user.key.id()), auth_account_email=current_user.email, message="")
+            else:
+                res = make_json_response(result="NG",is_authenticated=False, \
+                    auth_account_id="", auth_account_email="", message="")
 
-        logging.debug('now leave AuthCheck get')
-        return res
+            logging.debug('now leave AuthCheck get')
+            return res
 
 #このAPIはログイン時にしか呼ばれない
 class UserRestful(Resource):
@@ -196,47 +249,54 @@ class UserRestful(Resource):
     parser.add_argument('dependents_of_spouse' ,type=bool)
 
     def get(self):
-        logging.debug('now in user get')
-        logging.debug(current_user.key.id)
-        userobj = User().get_obj('account_id',str(current_user.key.id))
-        #オブジェクトはretuenでエラーになるのでjsonに変換する
-        user = convert_userobj_to_json(userobj)
-        #以下だとダメ？jsonもどきだが、オブジェクトではない？ 
-        #user = json.dumps(userobj._convert_to_dict(), default=str)  
-        # "{\"contact\": null, \"contact_kana\": null, \"dependents\": null, \"zipcode\": null, \"firstname\": null, \"lastname_kana\": \"\\u3042\\u304b\\u3044\", \"commuting_time\": null, \"created_at\": \"2022-04-24 06:40:31.279068+00:00\", \"account_id\": \"5705808872472576\", \"dependents_of_spouse\": null, \"updated_at\": \"2022-04-24 11:05:00.523927+00:00\", \"lastname\": \"\\u8d64\\u4e95\", \"address_kana\": null, \"firstname_kana\": null, \"spouse\": null, \"nickname\": null, \"birth_year\": null, \"birth_day\": null, \"address\": null, \"self_pr\": null, \"personal_request\": null, \"birth_month\": null}"
-        logging.debug(user)
-        logging.debug('now leave user get')
-        return user
+        client = ndb.Client()
+        with client.context():
+            logging.debug('now in user get')
+            logging.debug(current_user.key.id())
+            userobj = Users.query().filter(Users.account_id == str(current_user.key.id()))
+            #userobj = User().get_obj('account_id',str(current_user.key.id()))
+            #オブジェクトはretuenでエラーになるのでjsonに変換する
+            user = convert_userobj_to_json(userobj.get())
+            #以下だとダメ？jsonもどきだが、オブジェクトではない？ 
+            #user = json.dumps(userobj._convert_to_dict(), default=str)  
+            # "{\"contact\": null, \"contact_kana\": null, \"dependents\": null, \"zipcode\": null, \"firstname\": null, \"lastname_kana\": \"\\u3042\\u304b\\u3044\", \"commuting_time\": null, \"created_at\": \"2022-04-24 06:40:31.279068+00:00\", \"account_id\": \"5705808872472576\", \"dependents_of_spouse\": null, \"updated_at\": \"2022-04-24 11:05:00.523927+00:00\", \"lastname\": \"\\u8d64\\u4e95\", \"address_kana\": null, \"firstname_kana\": null, \"spouse\": null, \"nickname\": null, \"birth_year\": null, \"birth_day\": null, \"address\": null, \"self_pr\": null, \"personal_request\": null, \"birth_month\": null}"
+            logging.debug(user)
+            logging.debug('now leave user get')
+            return user
 
     def post(self):
-        logging.debug('now in user post')
-        args = self.parser.parse_args()
-        logging.debug(args)
-        userobj = User().get_obj('account_id',str(current_user.key.id))
-        userobj.lastname = args["lastname"]
-        userobj.firstname = args["firstname"]
-        userobj.lastname_kana = args["lastname_kana"]
-        userobj.firstname_kana = args["firstname_kana"]
-        userobj.gender = args["gender"]
-        userobj.birth_year = args["birth_year"]
-        userobj.birth_month = args["birth_month"]
-        userobj.birth_day = args["birth_day"]
-        userobj.zipcode = args["zipcode"]
-        userobj.address = args["address"]
-        userobj.address_kana = args["address_kana"]
-        userobj.contact = args["contact"]
-        userobj.contact_kana = args["contact_kana"]
-        userobj.self_pr = args["self_pr"]
-        userobj.personal_request = args["personal_request"]
-        userobj.commuting_time = args["commuting_time"]
-        userobj.dependents = args["dependents"]
-        userobj.spouse = args["spouse"]
-        userobj.dependents_of_spouse = args["dependents_of_spouse"]
-        userobj.updated_at = datetime.utcnow()
-        userobj.save()
-
-        logging.debug('now leave user post')
-        return ""
+        client = ndb.Client()
+        with client.context():
+            logging.debug('now in user post')
+            args = self.parser.parse_args()
+            logging.debug(args)
+            userobj = Users.query().filter(Users.account_id == str(current_user.key.id()))
+            #userobj = User().get_obj('account_id',str(current_user.key.id()))
+            userobj.get().lastname = args["lastname"]
+            userobj.get().firstname = args["firstname"]
+            userobj.get().lastname_kana = args["lastname_kana"]
+            userobj.get().firstname_kana = args["firstname_kana"]
+            userobj.get().gender = args["gender"]
+            userobj.get().birth_year = args["birth_year"]
+            userobj.get().birth_month = args["birth_month"]
+            userobj.get().birth_day = args["birth_day"]
+            userobj.get().zipcode = args["zipcode"]
+            userobj.get().address = args["address"]
+            userobj.get().address_kana = args["address_kana"]
+            userobj.get().contact = args["contact"]
+            userobj.get().contact_kana = args["contact_kana"]
+            userobj.get().self_pr = args["self_pr"]
+            userobj.get().personal_request = args["personal_request"]
+            userobj.get().commuting_time = args["commuting_time"]
+            userobj.get().dependents = args["dependents"]
+            userobj.get().spouse = args["spouse"]
+            userobj.get().dependents_of_spouse = args["dependents_of_spouse"]
+            userobj.get().updated_at = datetime.utcnow()
+            userobj.get().put()
+            #userobj.save()
+            user = convert_userobj_to_json(userobj.get())
+            logging.debug('now leave user post')
+            return user
 
 class EducationRestful(Resource):
     parser = reqparse.RequestParser()
@@ -280,14 +340,18 @@ datastore_client = datastore.Client()
 def load_user(email):  #userをロードするためのcallback functionを定義
     #load_userの引数は、Userクラスで定義したget_id()が返す値です。
     #これはstrでなければならないことに注意してください。
-    account = Account().get_obj("email", email)
+    account = Accounts.query().filter(Accounts.email == email)
+    #account = Account().get_obj("email", email)
     #account = Account().get_obj_with_key(int(key_id))  #NG
-    return account
+    return account.get()
+    #return account
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>', methods=('GET', 'POST'))
 def index(path):
-    return render_template('index.html')
+    client = ndb.Client()
+    with client.context():
+        return render_template('index.html')
 
 '''   
 # router キャッチオールエンドポイント
