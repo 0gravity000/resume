@@ -41,6 +41,39 @@ def convert_userobj_to_json(userobj):
     }
     return res 
 
+def convert_educationobj_to_json(educationobj):
+    res = {
+        "account_id": educationobj.account_id,
+        "event_year": educationobj.event_year,
+        "event_month": educationobj.event_month,
+        "event": educationobj.event,
+        "created_at": json.dumps(educationobj.created_at, default=json_serial),
+        "updated_at": json.dumps(educationobj.updated_at, default=json_serial),
+    }
+    return res 
+
+def convert_workhistoryobj_to_json(workhistoryobj):
+    res = {
+        "account_id": workhistoryobj.account_id,
+        "event_year": workhistoryobj.event_year,
+        "event_month": workhistoryobj.event_month,
+        "event": workhistoryobj.event,
+        "created_at": json.dumps(workhistoryobj.created_at, default=json_serial),
+        "updated_at": json.dumps(workhistoryobj.updated_at, default=json_serial),
+    }
+    return res 
+
+def convert_qualificationobj_to_json(qualificationobj):
+    res = {
+        "account_id": qualificationobj.account_id,
+        "qualification_year": qualificationobj.qualification_year,
+        "qualification_month": qualificationobj.qualification_month,
+        "qualification": qualificationobj.qualification,
+        "created_at": json.dumps(qualificationobj.created_at, default=json_serial),
+        "updated_at": json.dumps(qualificationobj.updated_at, default=json_serial),
+    }
+    return res 
+
 def json_serial(obj):
     if isinstance(obj, (datetime, date)):   # 日時の場合はisoformatに
         return obj.isoformat()
