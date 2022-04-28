@@ -22,7 +22,7 @@ from datetime import date, datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import secrets
-from common import make_json_response, convert_userobj_to_json, convert_educationobj_to_json, convert_workhistoryobj_to_json, convert_qualificationobj_to_json, convert_one_educationobj_to_json
+from common import make_json_response, convert_userobj_to_json, convert_educationobj_to_json, convert_workhistoryobj_to_json, convert_qualificationobj_to_json, convert_one_educationobj_to_json, convert_one_workhistoryobj_to_json
 #from model import Account, User
 from model import Accounts, Users, Educations, Workhistories, Qualifications
 
@@ -351,7 +351,7 @@ class EducationRestful(Resource):
             args = self.parser.parse_args()
             logging.debug(args)
 
-            #Educationsテーブルを作成 account_idカラムのみセット
+            #Educationsテーブルを作成
             education = Educations(
                 account_id=str(current_user.key.id()),
                 event_year = args["event_year"],
@@ -393,6 +393,7 @@ class EducationRestful(Resource):
 
 class WorkhistoyRestful(Resource):
     parser = reqparse.RequestParser()
+    parser.add_argument('id' ,type=int)
     parser.add_argument('event_year' ,type=int)
     parser.add_argument('event_month' ,type=int)
     parser.add_argument('event')
@@ -404,13 +405,11 @@ class WorkhistoyRestful(Resource):
             logging.debug(current_user.key.id())
             workhistoryobj = Workhistories.query().filter(Workhistories.account_id == str(current_user.key.id()))
             #オブジェクトはretuenでエラーになるのでjsonに変換する
-            workhistory = convert_workhistoryobj_to_json(workhistoryobj.get())
-            #以下だとダメ？jsonもどきだが、オブジェクトではない？ 
-            #user = json.dumps(userobj._convert_to_dict(), default=str)  
-            # "{\"contact\": null, \"contact_kana\": null, \"dependents\": null, \"zipcode\": null, \"firstname\": null, \"lastname_kana\": \"\\u3042\\u304b\\u3044\", \"commuting_time\": null, \"created_at\": \"2022-04-24 06:40:31.279068+00:00\", \"account_id\": \"5705808872472576\", \"dependents_of_spouse\": null, \"updated_at\": \"2022-04-24 11:05:00.523927+00:00\", \"lastname\": \"\\u8d64\\u4e95\", \"address_kana\": null, \"firstname_kana\": null, \"spouse\": null, \"nickname\": null, \"birth_year\": null, \"birth_day\": null, \"address\": null, \"self_pr\": null, \"personal_request\": null, \"birth_month\": null}"
-            logging.debug(workhistory)
+            #アカウントごとに複数の職歴を持つ
+            workhistories = convert_workhistoryobj_to_json(workhistoryobj)
+            logging.debug(workhistories)
             logging.debug('now leave workhistory get')
-            return workhistory
+            return workhistories
 
     def post(self):
         client = ndb.Client()
@@ -418,18 +417,52 @@ class WorkhistoyRestful(Resource):
             logging.debug('now in workhistory post')
             args = self.parser.parse_args()
             logging.debug(args)
-            workhistoryobj = Workhistories.query().filter(Workhistories.account_id == str(current_user.key.id()))
-            workhistoryobj.get().event_year = args["event_year"]
-            workhistoryobj.get().event_month = args["event_month"]
-            workhistoryobj.get().event = args["event"]
-            workhistoryobj.get().updated_at = datetime.utcnow()
-            workhistoryobj.get().put()
-            workhistory = convert_workhistoryobj_to_json(workhistoryobj.get())
+
+            #Workhistoriesテーブルを作成
+            Workhistory = Workhistories(
+                account_id=str(current_user.key.id()),
+                event_year = args["event_year"],
+                event_month = args["event_month"],
+                event = args["event"],
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+                )
+            key = Workhistory.put()
+            logging.debug(key)
+            logging.debug(key.id())
+            logging.debug(key.get())
+            Workhistory = convert_one_workhistoryobj_to_json(key.get())
+            #workhistory = convert_workhistoryobj_to_json(workhistoryobj.get())
+            logging.debug(Workhistory)
             logging.debug('now leave workhistory post')
+            return ""   #下のコードだとエラー　要調査
+            #return workhistory  #NameError: name 'workhistory' is not defined
+
+    def put(self):
+        client = ndb.Client()
+        with client.context():
+            logging.debug('now in workhistory put')
+            args = self.parser.parse_args()
+            logging.debug(args)
+            Workhistoris = Workhistories.query().filter()
+            for Workhistoryobj in Workhistoris:
+                logging.debug(Workhistoryobj)
+                if (Workhistoryobj.key.id() == args["id"]):
+                    logging.debug(Workhistoryobj.key.id())
+                    break
+            #educationobj = Educations.query().filter(Educations.account_id == account_id)
+            Workhistoryobj.event_year = args["event_year"]
+            Workhistoryobj.event_month = args["event_month"]
+            Workhistoryobj.event = args["event"]
+            Workhistoryobj.updated_at = datetime.utcnow()
+            Workhistoryobj.put()
+            workhistory = convert_one_workhistoryobj_to_json(Workhistoryobj)
+            logging.debug('now leave workhistory put')
             return workhistory
 
 class Qualification(Resource):
     parser = reqparse.RequestParser()
+    parser.add_argument('id' ,type=int)
     parser.add_argument('qualification_year' ,type=int)
     parser.add_argument('qualification_month' ,type=int)
     parser.add_argument('qualification')
