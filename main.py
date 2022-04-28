@@ -22,7 +22,7 @@ from datetime import date, datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import secrets
-from common import make_json_response, convert_userobj_to_json, convert_educationobj_to_json, convert_workhistoryobj_to_json, convert_qualificationobj_to_json, convert_one_educationobj_to_json, convert_one_workhistoryobj_to_json
+from common import make_json_response, convert_userobj_to_json, convert_educationobj_to_json, convert_workhistoryobj_to_json, convert_qualificationobj_to_json, convert_one_educationobj_to_json, convert_one_workhistoryobj_to_json, convert_one_qualificationobj_to_json
 #from model import Account, User
 from model import Accounts, Users, Educations, Workhistories, Qualifications
 
@@ -474,13 +474,10 @@ class Qualification(Resource):
             logging.debug(current_user.key.id())
             qualificationobj = Qualifications.query().filter(Qualifications.account_id == str(current_user.key.id()))
             #オブジェクトはretuenでエラーになるのでjsonに変換する
-            qualification = convert_qualificationobj_to_json(qualificationobj.get())
-            #以下だとダメ？jsonもどきだが、オブジェクトではない？ 
-            #user = json.dumps(userobj._convert_to_dict(), default=str)  
-            # "{\"contact\": null, \"contact_kana\": null, \"dependents\": null, \"zipcode\": null, \"firstname\": null, \"lastname_kana\": \"\\u3042\\u304b\\u3044\", \"commuting_time\": null, \"created_at\": \"2022-04-24 06:40:31.279068+00:00\", \"account_id\": \"5705808872472576\", \"dependents_of_spouse\": null, \"updated_at\": \"2022-04-24 11:05:00.523927+00:00\", \"lastname\": \"\\u8d64\\u4e95\", \"address_kana\": null, \"firstname_kana\": null, \"spouse\": null, \"nickname\": null, \"birth_year\": null, \"birth_day\": null, \"address\": null, \"self_pr\": null, \"personal_request\": null, \"birth_month\": null}"
-            logging.debug(qualification)
+            qualifications = convert_qualificationobj_to_json(qualificationobj)
+            logging.debug(qualifications)
             logging.debug('now leave qualification get')
-            return qualification
+            return qualifications
 
     def post(self):
         client = ndb.Client()
@@ -488,14 +485,48 @@ class Qualification(Resource):
             logging.debug('now in qualification post')
             args = self.parser.parse_args()
             logging.debug(args)
-            qualificationobj = Qualifications.query().filter(Qualifications.account_id == str(current_user.key.id()))
-            qualificationobj.get().qualification_year = args["qualification_year"]
-            qualificationobj.get().qualification_month = args["qualification_month"]
-            qualificationobj.get().qualification = args["qualification"]
-            qualificationobj.get().updated_at = datetime.utcnow()
-            qualificationobj.get().put()
-            qualification = convert_qualificationobj_to_json(qualificationobj.get())
+
+            #Qualificationsテーブルを作成
+            qualification = Qualifications(
+                account_id=str(current_user.key.id()),
+                qualification_year = args["qualification_year"],
+                qualification_month = args["qualification_month"],
+                qualification = args["qualification"],
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+                )
+            key = qualification.put()
+            logging.debug(key)
+            logging.debug(key.id())
+            logging.debug(key.get())
+            qualification = convert_one_qualificationobj_to_json(key.get())
+            #workhistory = convert_workhistoryobj_to_json(workhistoryobj.get())
+            logging.debug(qualification)
             logging.debug('now leave qualification post')
+            #return ""   #下のコードだとエラー　要調査
+            return qualification  #NameError: name 'workhistory' is not defined
+
+    def put(self):
+        client = ndb.Client()
+        with client.context():
+            logging.debug('now in qualification put')
+            args = self.parser.parse_args()
+            logging.debug(args)
+
+            qualifications = Qualifications.query().filter()
+            for qualificationobj in qualifications:
+                logging.debug(qualificationobj)
+                if (qualificationobj.key.id() == args["id"]):
+                    logging.debug(qualificationobj.key.id())
+                    break
+            #qualificationobj = Qualifications.query().filter(Qualifications.account_id == str(current_user.key.id()))
+            qualificationobj.qualification_year = args["qualification_year"]
+            qualificationobj.qualification_month = args["qualification_month"]
+            qualificationobj.qualification = args["qualification"]
+            qualificationobj.updated_at = datetime.utcnow()
+            qualificationobj.put()
+            qualification = convert_one_qualificationobj_to_json(qualificationobj)
+            logging.debug('now leave qualification put')
             return qualification
 
 ##

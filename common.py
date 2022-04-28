@@ -95,7 +95,7 @@ def convert_workhistoryobj_to_json(workhistoryobj):
         res.append(resbuf)
     return res 
 
-def convert_qualificationobj_to_json(qualificationobj):
+def convert_one_qualificationobj_to_json(qualificationobj):
     res = {
         "id": qualificationobj.key.id(),
         "account_id": qualificationobj.account_id,
@@ -105,6 +105,21 @@ def convert_qualificationobj_to_json(qualificationobj):
         "created_at": json.dumps(qualificationobj.created_at, default=json_serial),
         "updated_at": json.dumps(qualificationobj.updated_at, default=json_serial),
     }
+    return res 
+
+def convert_qualificationobj_to_json(qualificationobj):
+    res = []
+    for qualification in qualificationobj:
+        resbuf = {
+            "id": qualification.key.id(),
+            "account_id": qualification.account_id,
+            "qualification_year": qualification.qualification_year,
+            "qualification_month": qualification.qualification_month,
+            "qualification": qualification.qualification,
+            "created_at": json.dumps(qualification.created_at, default=json_serial),
+            "updated_at": json.dumps(qualification.updated_at, default=json_serial),
+        }
+        res.append(resbuf)
     return res 
 
 def json_serial(obj):
