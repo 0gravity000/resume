@@ -22,7 +22,7 @@ from datetime import date, datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import secrets
-from common import make_json_response, convert_userobj_to_json, convert_educationobj_to_json, convert_workhistoryobj_to_json, convert_qualificationobj_to_json
+from common import make_json_response, convert_userobj_to_json, convert_educationobj_to_json, convert_workhistoryobj_to_json, convert_qualificationobj_to_json, convert_one_educationobj_to_json
 #from model import Account, User
 from model import Accounts, Users, Educations, Workhistories, Qualifications
 
@@ -325,6 +325,7 @@ class UserRestful(Resource):
 
 class EducationRestful(Resource):
     parser = reqparse.RequestParser()
+    parser.add_argument('id' ,type=int)
     parser.add_argument('event_year' ,type=int)
     parser.add_argument('event_month' ,type=int)
     parser.add_argument('event')
@@ -336,13 +337,12 @@ class EducationRestful(Resource):
             logging.debug(current_user.key.id())
             educationobj = Educations.query().filter(Educations.account_id == str(current_user.key.id()))
             #オブジェクトはretuenでエラーになるのでjsonに変換する
-            education = convert_educationobj_to_json(educationobj.get())
-            #以下だとダメ？jsonもどきだが、オブジェクトではない？ 
-            #user = json.dumps(userobj._convert_to_dict(), default=str)  
-            # "{\"contact\": null, \"contact_kana\": null, \"dependents\": null, \"zipcode\": null, \"firstname\": null, \"lastname_kana\": \"\\u3042\\u304b\\u3044\", \"commuting_time\": null, \"created_at\": \"2022-04-24 06:40:31.279068+00:00\", \"account_id\": \"5705808872472576\", \"dependents_of_spouse\": null, \"updated_at\": \"2022-04-24 11:05:00.523927+00:00\", \"lastname\": \"\\u8d64\\u4e95\", \"address_kana\": null, \"firstname_kana\": null, \"spouse\": null, \"nickname\": null, \"birth_year\": null, \"birth_day\": null, \"address\": null, \"self_pr\": null, \"personal_request\": null, \"birth_month\": null}"
-            logging.debug(education)
+            #アカウントごとに複数の学歴を持つ
+            educations = convert_educationobj_to_json(educationobj)
+            #education = convert_educationobj_to_json(educationobj.get())
+            logging.debug(educations)
             logging.debug('now leave education get')
-            return education
+            return educations
 
     def post(self):
         client = ndb.Client()
@@ -350,15 +350,46 @@ class EducationRestful(Resource):
             logging.debug('now in education post')
             args = self.parser.parse_args()
             logging.debug(args)
-            educationobj = Educations.query().filter(Educations.account_id == str(current_user.key.id()))
-            educationobj.get().event_year = args["event_year"]
-            educationobj.get().event_month = args["event_month"]
-            educationobj.get().event = args["event"]
-            educationobj.get().updated_at = datetime.utcnow()
-            educationobj.get().put()
-            education = convert_educationobj_to_json(educationobj.get())
+
+            #Educationsテーブルを作成 account_idカラムのみセット
+            education = Educations(
+                account_id=str(current_user.key.id()),
+                event_year = args["event_year"],
+                event_month = args["event_month"],
+                event = args["event"],
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+                )
+            key = education.put()
+            logging.debug(key)
+            logging.debug(key.id())
+            logging.debug(key.get())
+            education = convert_one_educationobj_to_json(key.get())
             logging.debug('now leave education post')
             return education
+
+    def put(self):
+        client = ndb.Client()
+        with client.context():
+            logging.debug('now in education put')
+            args = self.parser.parse_args()
+            logging.debug(args)
+            educations = Educations.query().filter()
+            for educationobj in educations:
+                logging.debug(educationobj)
+                if (educationobj.key.id() == args["id"]):
+                    logging.debug(educationobj.key.id())
+                    break
+            #educationobj = Educations.query().filter(Educations.account_id == account_id)
+            educationobj.event_year = args["event_year"]
+            educationobj.event_month = args["event_month"]
+            educationobj.event = args["event"]
+            educationobj.updated_at = datetime.utcnow()
+            educationobj.put()
+            education = convert_one_educationobj_to_json(educationobj)
+            logging.debug('now leave education put')
+            return education
+
 
 class WorkhistoyRestful(Resource):
     parser = reqparse.RequestParser()
