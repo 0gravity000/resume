@@ -553,8 +553,8 @@ def load_user(email):  #userをロードするためのcallback functionを定�
     #load_userの引数は、Userクラスで定義したget_id()が返す値です。
     #これはstrでなければならないことに注意してください。
     account = Accounts.query().filter(Accounts.email == email)
-    #account = Account().get_obj("email", email)
-    #account = Account().get_obj_with_key(int(key_id))  #NG
+    logging.debug('now in load_user：')
+    logging.debug(account)
     return account.get()
     #return account
 
