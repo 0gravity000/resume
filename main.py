@@ -25,6 +25,7 @@ import secrets
 from common import make_json_response, convert_userobj_to_json, convert_educationobj_to_json, convert_workhistoryobj_to_json, convert_qualificationobj_to_json, convert_one_educationobj_to_json, convert_one_workhistoryobj_to_json, convert_one_qualificationobj_to_json
 #from model import Account, User
 from model import Accounts, Users, Educations, Workhistories, Qualifications
+import re
 
 # If `entrypoint` is not defined in app.yaml, App Engine will look for an app
 # called `app` in `main.py`.
@@ -96,15 +97,31 @@ class RegisterRestful(Resource):
             logging.debug(key)
             '''
 
+            #emailアドレスの空白チェック
+            if args["email"] == "":
+                return make_json_response(result="NG", is_authenticated=False, \
+                    auth_account_id="", auth_account_email="", message="メールアドレスが空白です")
+
+            #パスワードの空白チェック
+            if args["password"] == "":
+                return make_json_response(result="NG", is_authenticated=False, \
+                    auth_account_id="", auth_account_email="", message="パスワードが空白です")
+
             #emailの重複チェック
             account = Accounts.query().filter(Accounts.email == args["email"])
             logging.debug(account)
             logging.debug(account.get())
-
             #account = Account().get_obj('email',args["email"])
             if account.get():
                 return make_json_response(result="NG", is_authenticated=False, \
-                    auth_account_id="", auth_account_email="", message="Duplicate email")
+                    auth_account_id="", auth_account_email="", message="メールアドレスは既に登録されています。")
+
+            #有効なemailアドレスかチェック
+            pattern = "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+            #pattern = "^[A-Za-z0-9]{1}[A-Za-z0-9_.-]*@{1}[A-Za-z0-9_.-]+.[A-Za-z0-9]+$"
+            if not re.match(pattern, args["email"]):
+                return make_json_response(result="NG", is_authenticated=False, \
+                    auth_account_id="", auth_account_email="", message="有効なメールアドレスではありません。")
 
             #Accountオブジェクトを新規作成
             account = Accounts(
@@ -202,6 +219,23 @@ class LoginRestful(Resource):
             #logging.debug(account[0]["email"])
             '''
 
+            #emailアドレスの空白チェック
+            if args["email"] == None:
+                return make_json_response(result="NG", is_authenticated=False, \
+                    auth_account_id="", auth_account_email="", message="メールアドレスが空白です")
+
+            #パスワードの空白チェック
+            if args["password"] == None:
+                return make_json_response(result="NG", is_authenticated=False, \
+                    auth_account_id="", auth_account_email="", message="パスワードが空白です")
+
+            #有効なemailアドレスかチェック
+            pattern = "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+            #pattern = "^[A-Za-z0-9]{1}[A-Za-z0-9_.-]*@{1}[A-Za-z0-9_.-]+.[A-Za-z0-9]+$"
+            if not re.match(pattern, args["email"]):
+                return make_json_response(result="NG", is_authenticated=False, \
+                    auth_account_id="", auth_account_email="", message="有効なメールアドレスではありません。")
+
             # check if the user actually exists
             # take the user-supplied password, hash it, and compare it to the hashed password in the database
             # アカウントの存在、パスワードが一致するかチェック
@@ -210,7 +244,7 @@ class LoginRestful(Resource):
                 # flash('Please check your login details and try again.')   #どうやるか要調査
                 logging.debug('now leave Login post: auth NG')
                 return make_json_response(result="NG", is_authenticated=False, \
-                    auth_account_id="", auth_account_email="", message="Login failed")            #return account.email, 401
+                    auth_account_id="", auth_account_email="", message="ログインに失敗しました。")            #return account.email, 401
                 #return redirect(url_for('auth.login')) # if the user doesn't exist or password is wrong, reload the page
 
             # if the above check passes, then we know the user has the right credentials
