@@ -5,3 +5,21 @@ indexes:
   - name: email
   - name: updated_at
     direction: desc
+
+- kind: Educations
+  properties:
+  - name: account_id
+  - name: event_year
+  - name: event_month
+
+- kind: Workhistories
+  properties:
+  - name: account_id
+  - name: event_year
+  - name: event_month
+
+- kind: Qualifications
+  properties:
+  - name: account_id
+  - name: qualification_year
+  - name: qualification_month

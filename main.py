@@ -295,11 +295,16 @@ class UserRestful(Resource):
     parser.add_argument('birth_year' ,type=int)
     parser.add_argument('birth_month' ,type=int)
     parser.add_argument('birth_day' ,type=int)
-    parser.add_argument('zipcode')
+    parser.add_argument('address_zipcode')
     parser.add_argument('address')
     parser.add_argument('address_kana')
+    parser.add_argument('address_phone')
+    parser.add_argument('address_email')
+    parser.add_argument('contact_zipcode')
     parser.add_argument('contact')
     parser.add_argument('contact_kana')
+    parser.add_argument('contact_phone')
+    parser.add_argument('contact_email')
     parser.add_argument('self_pr')
     parser.add_argument('personal_request')
     parser.add_argument('commuting_time')
@@ -339,11 +344,16 @@ class UserRestful(Resource):
             userobj.get().birth_year = args["birth_year"]
             userobj.get().birth_month = args["birth_month"]
             userobj.get().birth_day = args["birth_day"]
-            userobj.get().zipcode = args["zipcode"]
+            userobj.get().address_zipcode = args["address_zipcode"]
             userobj.get().address = args["address"]
             userobj.get().address_kana = args["address_kana"]
+            userobj.get().address_phone = args["address_phone"]
+            userobj.get().address_email = args["address_email"]
+            userobj.get().contact = args["contact_zipcode"]
             userobj.get().contact = args["contact"]
             userobj.get().contact_kana = args["contact_kana"]
+            userobj.get().contact_phone = args["contact_phone"]
+            userobj.get().contact_email = args["contact_email"]
             userobj.get().self_pr = args["self_pr"]
             userobj.get().personal_request = args["personal_request"]
             userobj.get().commuting_time = args["commuting_time"]
@@ -369,7 +379,7 @@ class EducationRestful(Resource):
         with client.context():
             logging.debug('now in education get')
             logging.debug(current_user.key.id())
-            educationobj = Educations.query().filter(Educations.account_id == str(current_user.key.id()))
+            educationobj = Educations.query().filter(Educations.account_id == str(current_user.key.id())).order(Educations.event_year, Educations.event_month)
             #オブジェクトはretuenでエラーになるのでjsonに変換する
             #アカウントごとに複数の学歴を持つ
             educations = convert_educationobj_to_json(educationobj)
@@ -437,7 +447,7 @@ class WorkhistoyRestful(Resource):
         with client.context():
             logging.debug('now in workhistory get')
             logging.debug(current_user.key.id())
-            workhistoryobj = Workhistories.query().filter(Workhistories.account_id == str(current_user.key.id()))
+            workhistoryobj = Workhistories.query().filter(Workhistories.account_id == str(current_user.key.id())).order(Workhistories.event_year, Workhistories.event_month)
             #オブジェクトはretuenでエラーになるのでjsonに変換する
             #アカウントごとに複数の職歴を持つ
             workhistories = convert_workhistoryobj_to_json(workhistoryobj)
@@ -506,7 +516,7 @@ class Qualification(Resource):
         with client.context():
             logging.debug('now in qualification get')
             logging.debug(current_user.key.id())
-            qualificationobj = Qualifications.query().filter(Qualifications.account_id == str(current_user.key.id()))
+            qualificationobj = Qualifications.query().filter(Qualifications.account_id == str(current_user.key.id())).order(Qualifications.qualification_year, Qualifications.qualification_month)
             #オブジェクトはretuenでエラーになるのでjsonに変換する
             qualifications = convert_qualificationobj_to_json(qualificationobj)
             logging.debug(qualifications)
